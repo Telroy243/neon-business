@@ -159,7 +159,7 @@
                     const date_str = new Date(d.date_transaction).toLocaleDateString('fr-FR', {day:'2-digit', month:'short'});
                     const cleanNom = d.dette_nom.replace(/'/g, "\\'");
                     const cleanProd = d.nom_produit_historique.replace(/'/g, "\\'");
-                    html += `<div class="debt-item" style="cursor:pointer; border-left: 4px solid var(--neon-orange); transition: background 0.3s;" onmouseover="this.style.background='var(--border-color)'" onmouseout="this.style.background='var(--surface-solid)'" onclick="promptPayDebt('${d.id}', '${cleanNom}', '${cleanProd}', ${d.montant_total}, ${d.taux_historique})">
+                    html += `<div class="debt-item" style="cursor:pointer; border-left: 4px solid var(--neon-orange); transition: background 0.3s;" onmouseover="this.style.background='var(--border-color)'" onmouseout="this.style.background='var(--surface-solid)'" onclick="openDebt('${d.id}', '${cleanNom}')">
                                 <div><strong style="color:var(--neon-orange); font-size:1.1rem;">${d.dette_nom}</strong><br><span style="font-size:0.8rem;color:var(--text-muted)">${d.nom_produit_historique} (${date_str})</span></div>
                                 <div style="text-align:right;">
                                     <strong style="color:var(--neon-green); display:block; font-size:1.1rem;">${window.formatMoney(d.montant_total, d.taux_historique)}</strong>
