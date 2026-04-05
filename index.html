@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - NEON Business</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0b0f19">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .chart-container { position: relative; width: 100%; height: 220px; margin-top: 15px; }
+        .debt-item { display: flex; justify-content: space-between; background: var(--surface-solid); padding: 15px; border-radius: 12px; font-size: 0.95rem; margin-bottom: 10px; border: 1px solid var(--border-color); align-items: center;}
+    </style>
+</head>
+<body>
+    <header><h1><i class="ph-fill ph-lightning"></i> NEON Business</h1></header>
+
+    <main class="page">
+        <div class="global-cash">
+            <h3><i class="ph ph-wallet"></i> Trésorerie Disponible</h3>
+            <p id="kpi-cash-balance">...</p>
+        </div>
+
+        <div class="kpi-grid">
+            <div class="kpi-box">
+                <i class="ph ph-trend-up"></i>
+                <h3>Bénéfice Net</h3><p id="kpi-benef">0</p>
+            </div>
+            <div class="kpi-box cyan">
+                <i class="ph ph-chart-bar"></i>
+                <h3>Chiffre d'Aff.</h3><p id="kpi-ca">0</p>
+            </div>
+            <div class="kpi-box purple">
+                <i class="ph ph-package"></i>
+                <h3>Valeur Stock</h3><p id="kpi-stock-val">0</p>
+            </div>
+            <div class="kpi-box orange">
+                <i class="ph ph-hand-coins"></i>
+                <h3>Dettes Client</h3><p id="kpi-dettes">0</p>
+            </div>
+        </div>
+        
+        <div class="card" style="border-left: 4px solid var(--neon-cyan);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                <h3 class="section-title" style="margin:0;"><i class="ph ph-chart-line"></i> Évolution Ventes</h3>
+                <div style="display:flex; gap:6px;">
+                    <button class="filter-btn active" onclick="setChartFilter('ALL', this)" style="padding: 6px 12px; font-size: 0.8rem;">ALL</button>
+                    <button class="filter-btn" onclick="setChartFilter('30', this)" style="padding: 6px 12px; font-size: 0.8rem;">30J</button>
+                    <button class="filter-btn" onclick="setChartFilter('7', this)" style="padding: 6px 12px; font-size: 0.8rem;">7J</button>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="salesChart"></canvas>
+            </div>
+        </div>
+
+        <div class="card" id="debts-container" style="border-left: 4px solid var(--neon-orange);">
+            <h3 class="section-title"><i class="ph ph-warning-circle"></i> Dettes En Cours</h3>
+            <div id="debt-list-el"></div>
+        </div>
+
+        <div id="alert-container"></div>
+        <a href="inventory.html" class="fab"><i class="ph ph-plus"></i></a>
+    </main>
+
+    <nav class="bottom-nav">
+        <a href="index.html" class="nav-item active"><i class="ph-fill ph-squares-four"></i><span>Dash</span></a>
+        <a href="inventory.html" class="nav-item"><i class="ph ph-package"></i><span>Stock</span></a>
+        <a href="treasury.html" class="nav-item"><i class="ph ph-chart-line-up"></i><span>Flux</span></a>
+        <a href="settings.html" class="nav-item"><i class="ph ph-gear"></i><span>Param</span></a>
+        <a href="about.html" class="nav-item"><i class="ph ph-user-circle"></i><span>Moi</span></a>
+    </nav>
+
+    <script src="database.js"></script>
+    <script>
+        let salesChartInstance = null;
+        let currentChartFilter = 'ALL';
+
+        function setChartFilter(days, el) {
+            currentChartFilter = days;
+            el.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+            el.classList.add('active');
+            updateDashboard();
+        }
+
+        async function updateDashboard() {
+            await dbManager.initDB();
+            const products = await dbManager.getProducts();
+            const transactions = await dbManager.getTransactions();
+
+            let benefUsd = 0, caUsd = 0, stockValUsd = 0, balanceUsd = 0, dettesUsd = 0;
+            let alertsHTML = '';
+            const debtsArr = [];
+
+            transactions.forEach(t => {
+                if(t.type === 'VENTE') {
+                    if (t.statut_paiement === 'PAYE') {
+                        benefUsd += t.marge_realisee || 0;
+                        caUsd += t.montant_total;
+                        balanceUsd += t.montant_total;
+                    } else if (t.statut_paiement === 'DETTE') {
+                        dettesUsd += t.montant_total;
+                        debtsArr.push(t);
+                    }
+                } else if(t.type === 'ACHAT' || t.type === 'RETRAIT') {
+                    balanceUsd += t.montant_total; 
+                }
+            });
+
+            products.forEach(p => {
+                stockValUsd += (p.stock_actuel * p.prix_achat_moyen);
+                if(p.stock_actuel <= p.seuil_alerte) {
+                    alertsHTML += `<div class="card" style="border-left: 4px solid var(--neon-red);"><p style="display:flex; align-items:center; gap:8px;"><i class="ph-fill ph-warning" style="color:var(--neon-red); font-size:1.5rem;"></i> Stock critique : <strong>${p.nom}</strong> (Reste ${p.stock_actuel})</p></div>`;
+                }
+            });
+
+            document.getElementById('kpi-benef').innerText = window.formatMoney(benefUsd);
+            document.getElementById('kpi-ca').innerText = window.formatMoney(caUsd);
+            document.getElementById('kpi-stock-val').innerText = window.formatMoney(stockValUsd);
+            document.getElementById('kpi-dettes').innerText = window.formatMoney(dettesUsd);
+            
+            const cashEl = document.getElementById('kpi-cash-balance');
+            cashEl.innerText = window.formatMoney(balanceUsd);
+            cashEl.className = balanceUsd >= 0 ? 'positive' : 'negative';
+
+            document.getElementById('alert-container').innerHTML = alertsHTML;
+
+            renderDebtsList(debtsArr);
+            renderChart(transactions);
+        }
+
+        function renderDebtsList(debtsArr) {
+            const container = document.getElementById('debt-list-el');
+            if (debtsArr.length === 0) {
+                container.innerHTML = '<p style="color:var(--text-muted); font-size:0.95rem; display:flex; align-items:center; gap:8px;"><i class="ph ph-check-circle"></i> Aucune dette en cours.</p>';
+            } else {
+                let html = '';
+                debtsArr.forEach(d => {
+                    const date_str = new Date(d.date_transaction).toLocaleDateString('fr-FR', {day:'2-digit', month:'short'});
+                    const cleanNom = d.dette_nom.replace(/'/g, "\\'");
+                    const cleanProd = d.nom_produit_historique.replace(/'/g, "\\'");
+                    html += `<div class="debt-item" style="cursor:pointer; border-left: 4px solid var(--neon-orange); transition: background 0.3s;" onmouseover="this.style.background='var(--border-color)'" onmouseout="this.style.background='var(--surface-solid)'" onclick="promptPayDebt('${d.id}', '${cleanNom}', '${cleanProd}', ${d.montant_total}, ${d.taux_historique})">
+                                <div><strong style="color:var(--neon-orange); font-size:1.1rem;">${d.dette_nom}</strong><br><span style="font-size:0.8rem;color:var(--text-muted)">${d.nom_produit_historique} (${date_str})</span></div>
+                                <div style="text-align:right;">
+                                    <strong style="color:var(--neon-green); display:block; font-size:1.1rem;">${window.formatMoney(d.montant_total, d.taux_historique)}</strong>
+                                    <span style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; display:flex; align-items:center; justify-content:flex-end; gap:4px;"><i class="ph ph-hand-tap"></i> Payer</span>
+                                </div>
+                             </div>`;
+                });
+                container.innerHTML = html;
+            }
+        }
+
+        async function promptPayDebt(id, nom, produit, montant, taux) {
+            const ok = await UI.confirm("Règlement de Dette", `Marquer la dette de "${nom}" (${window.formatMoney(montant, taux)}) pour "${produit}" comme PAYÉE ?`);
+            if(ok) {
+                try {
+                    await dbManager.payDebt(id);
+                    UI.showToast("Dette réglée avec succès !", "success");
+                    updateDashboard();
+                } catch(e) { UI.showToast(e.message, "error"); }
+            }
+        }
+
+        function renderChart(transactions) {
+            const ctx = document.getElementById('salesChart').getContext('2d');
+            
+            let daysToLookBack = 7;
+            if (currentChartFilter === '30') daysToLookBack = 30;
+            if (currentChartFilter === 'ALL') {
+                if (transactions.length === 0) daysToLookBack = 7;
+                else {
+                   const oldest = transactions.reduce((min, t) => new Date(t.date_transaction) < new Date(min) ? t.date_transaction : min, new Date());
+                   const diffTime = Math.abs(new Date() - new Date(oldest));
+                   daysToLookBack = Math.max(7, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+                   if (daysToLookBack > 100) daysToLookBack = 100;
+                }
+            }
+            
+            const dataMap = {};
+            const labels = [];
+            for(let i = daysToLookBack - 1; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                const dStr = d.toISOString().split('T')[0];
+                dataMap[dStr] = 0;
+                labels.push(daysToLookBack > 14 ? `${d.getDate()}/${d.getMonth()+1}` : d.toLocaleDateString('fr-FR', {weekday: 'short'}));
+            }
+
+            transactions.forEach(t => {
+                if (t.type === 'VENTE' && t.statut_paiement === 'PAYE') {
+                    const tDate = t.date_transaction.split('T')[0];
+                    if (dataMap[tDate] !== undefined) dataMap[tDate] += t.montant_total;
+                }
+            });
+
+            let currencySuffix = window.appSettings.getCurrency() === 'USD' ? '$' : 'CDF';
+            const rate = window.appSettings.getRate();
+            const dataPoints = Object.values(dataMap).map(val => window.appSettings.getCurrency() === 'USD' ? val : val * rate);
+
+            if (salesChartInstance) salesChartInstance.destroy();
+
+            const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+            const gridColor = isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)';
+            const textColor = isLight ? '#64748b' : '#94a3b8';
+
+            salesChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: `Ventes (${currencySuffix})`,
+                        data: dataPoints,
+                        borderColor: '#00e6f6',
+                        backgroundColor: 'rgba(0, 230, 246, 0.15)',
+                        borderWidth: 3,
+                        tension: 0.4,
+                        fill: true,
+                        pointBackgroundColor: '#00e6f6',
+                        pointBorderColor: '#fff',
+                        pointRadius: 3,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: textColor, font: {family: 'Outfit'} } },
+                        x: { grid: { display: false }, ticks: { color: textColor, font: {family: 'Outfit'}, autoSkip: true, maxTicksLimit: 10 } }
+                    },
+                    plugins: { legend: { display: false } },
+                    interaction: { mode: 'index', intersect: false }
+                }
+            });
+        }
+
+        window.onload = updateDashboard;
+    </script>
+</body>
+</html>

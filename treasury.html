@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trésorerie & Flux - NEON Business</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0b0f19">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header><h1><i class="ph-fill ph-chart-line-up"></i> Trésorerie & Flux</h1></header>
+
+    <main class="page">
+        <div class="global-cash" style="margin-bottom: 20px;">
+            <h3><i class="ph ph-wallet"></i> Solde Caisse (Net)</h3>
+            <p id="kpi-cashier">...</p>
+        </div>
+        
+        <button class="primary-btn purple" onclick="initiateWithdrawal()" style="margin-bottom:20px;">
+            <i class="ph-fill ph-money"></i> Retirer des Fonds
+        </button>
+
+        <div class="filter-row">
+            <div class="filter-btn active" onclick="setFilter('ALL', this)">Tout</div>
+            <div class="filter-btn" onclick="setFilter('VENTE', this)">Ventes</div>
+            <div class="filter-btn" onclick="setFilter('ACHAT', this)">Achats</div>
+            <div class="filter-btn" onclick="setFilter('DETTES', this)">Dettes</div>
+            <div class="filter-btn" onclick="setFilter('RETRAIT', this)">Retraits</div>
+        </div>
+
+        <div class="card" id="sales-list" style="padding: 10px;">
+            <p style='text-align:center; color: var(--text-muted);'><i class="ph ph-spinner"></i> Chargement...</p>
+        </div>
+    </main>
+
+    <nav class="bottom-nav">
+        <a href="index.html" class="nav-item"><i class="ph ph-squares-four"></i><span>Dash</span></a>
+        <a href="inventory.html" class="nav-item"><i class="ph ph-package"></i><span>Stock</span></a>
+        <a href="treasury.html" class="nav-item active"><i class="ph-fill ph-chart-line-up"></i><span>Flux</span></a>
+        <a href="settings.html" class="nav-item"><i class="ph ph-gear"></i><span>Param</span></a>
+        <a href="about.html" class="nav-item"><i class="ph ph-user-circle"></i><span>Moi</span></a>
+    </nav>
+
+    <script src="database.js"></script>
+    <script>
+        let currentFilter = 'ALL';
+        let allTransactions = [];
+
+        function setFilter(type, el) {
+            currentFilter = type;
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            el.classList.add('active');
+            renderSales();
+        }
+
+        async function initiateWithdrawal() {
+            const curr = window.appSettings.getCurrency();
+            const amountStr = await UI.prompt(`Quel montant (${curr}) voulez-vous retirer du solde ?`, "Montant", "", "number");
+            if (!amountStr) return;
+            const amount = parseFloat(amountStr);
+            if (isNaN(amount) || amount <= 0) return UI.showToast("Montant invalide", "error");
+
+            const reason = await UI.prompt("Quel est le motif de ce retrait ?", "Motif (Personnel, Dépense pro...)", "Besoin personnel", "text");
+            if (!reason) return;
+
+            try {
+                await dbManager.withdrawFunds(amount, reason);
+                UI.showToast("✅ Retrait effectué", "success");
+                loadTransactions();
+            } catch(e) {
+                UI.showToast(e.message, "error");
+            }
+        }
+
+        async function loadTransactions() {
+            await dbManager.initDB();
+            allTransactions = await dbManager.getTransactions();
+            
+            let balanceUsd = 0;
+            allTransactions.forEach(t => {
+                if(t.statut_paiement === 'DETTE') return;
+                if (t.type === 'VENTE' || t.type === 'ACHAT' || t.type === 'RETRAIT') {
+                    balanceUsd += t.montant_total;
+                }
+            });
+
+            const kpi = document.getElementById('kpi-cashier');
+            kpi.innerText = window.formatMoney(balanceUsd);
+            kpi.className = balanceUsd >= 0 ? 'positive' : 'negative';
+
+            allTransactions.sort((a,b) => new Date(b.date_transaction) - new Date(a.date_transaction));
+            renderSales();
+        }
+
+        function renderSales() {
+            const list = document.getElementById('sales-list');
+            list.innerHTML = '';
+            
+            const filtered = allTransactions.filter(t => {
+                if (currentFilter === 'ALL') return true;
+                if (currentFilter === 'DETTES') return t.statut_paiement === 'DETTE' || !!t.date_paiement;
+                return t.type === currentFilter;
+            });
+            
+            filtered.forEach(s => {
+                const date = new Date(s.date_transaction).toLocaleDateString('fr-FR', {day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'});
+                
+                let typeHTML = '';
+                let amountHTML = '';
+                
+                let dateDisplay = `<span style="font-size:0.75rem; color:var(--text-muted); display:flex; align-items:center; gap:4px;"><i class="ph ph-calendar"></i> ${date}</span>`;
+                if(s.date_paiement) {
+                    const dp = new Date(s.date_paiement).toLocaleDateString('fr-FR', {day:'2-digit', month:'short'});
+                    dateDisplay = `<span style="font-size:0.75rem; color:var(--text-muted);"><i class="ph ph-calendar"></i> Pris le ${date.split(' ')[0]}<br><span style="color:var(--neon-green)"><i class="ph ph-check"></i> Payé le ${dp}</span></span>`;
+                }
+
+                const fMoney = window.formatMoney(s.montant_total, s.taux_historique);
+                const fMarge = s.marge_realisee !== undefined ? window.formatMoney(s.marge_realisee, s.taux_historique) : "";
+
+                if (s.type === 'VENTE') {
+                    typeHTML = `<span class="type-badge bg-vente"><i class="ph-fill ph-trend-up"></i> Vente</span>`;
+                    if(s.statut_paiement === 'DETTE') {
+                        typeHTML += `<span class="type-badge bg-dette"><i class="ph-fill ph-hand-coins"></i> Crédit: ${s.dette_nom}</span>`;
+                    } else if(s.date_paiement) {
+                        typeHTML += `<span class="type-badge" style="background-color:rgba(0,245,139,0.15); color:var(--neon-green); border:1px solid var(--neon-green)"><i class="ph-fill ph-check-circle"></i> Réglé: ${s.dette_nom}</span>`;
+                    }
+                    amountHTML = `<span style="color: var(--neon-green); display:block; font-weight:800; font-size:1.1rem;">+${fMoney}</span>
+                                  <span style="color: var(--text-muted); font-size: 0.75rem;">Marge: ${fMarge}</span>`;
+                } else if (s.type === 'ACHAT') {
+                    typeHTML = `<span class="type-badge bg-achat"><i class="ph-fill ph-trend-down"></i> Achat</span>`;
+                    amountHTML = `<span style="color: var(--neon-red); display:block; font-weight:800; font-size:1.1rem;">${fMoney}</span>`;
+                } else if (s.type === 'RETRAIT') {
+                    typeHTML = `<span class="type-badge" style="background-color:rgba(179,136,255,0.15); color:var(--neon-purple);"><i class="ph-fill ph-money"></i> Retrait</span>`;
+                    amountHTML = `<span style="color: var(--neon-red); display:block; font-weight:800; font-size:1.1rem;">${fMoney}</span>`;
+                } else {
+                    typeHTML = `<span class="type-badge bg-edition"><i class="ph-fill ph-pencil-simple"></i> Edition</span>`;
+                    amountHTML = `<span style="color: var(--text-muted); display:block; font-style:italic;">${s.details || 'Modif'}</span>`;
+                }
+
+                list.innerHTML += `
+                    <div class="list-item" style="padding: 15px 10px;">
+                        <div>
+                            <div style="margin-bottom: 5px;">${typeHTML}</div>
+                            <h4 style="font-size:1rem; font-weight:600; margin-bottom:4px;">${s.nom_produit_historique} ${s.quantite && s.type !=='RETRAIT' ? `<span style="color:var(--text-muted); font-weight:400;">(x${s.quantite})</span>` : ''}</h4>
+                            ${dateDisplay}
+                        </div>
+                        <div style="text-align: right; display:flex; flex-direction:column; justify-content:center;">
+                            ${amountHTML}
+                        </div>
+                    </div>`;
+            });
+            if(filtered.length === 0) list.innerHTML = "<p style='text-align:center; color: var(--text-muted); padding: 20px 0;'><i class='ph ph-receipt' style='font-size:2rem; display:block; margin: 0 auto 10px;'></i>Aucun flux enregistré.</p>";
+        }
+
+        window.onload = loadTransactions;
+    </script>
+</body>
+</html>

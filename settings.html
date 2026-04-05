@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paramètres - NEON Business</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0b0f19">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .setting-info { flex: 1; }
+        .setting-info strong { display: block; margin-bottom: 4px; font-weight: 600; font-size: 1.05rem; color: var(--text-main); }
+        .setting-info span { font-size: 0.85rem; color: var(--text-muted); line-height: 1.4; display: block;}
+        .list-item { padding: 20px 0; gap: 15px;}
+        input[type="file"]::file-selector-button { background: var(--bg-color); color: var(--text-main); border:1px solid var(--border-color); padding: 10px 14px; border-radius: 8px; cursor: pointer; transition: all 0.3s; margin-right:15px; font-family:'Outfit'; font-weight: 600;}
+        input[type="file"]::file-selector-button:hover { background: var(--surface-solid); }
+    </style>
+</head>
+<body>
+    <header><h1><i class="ph-fill ph-gear"></i> Paramètres</h1></header>
+
+    <main class="page">
+        <!-- Appearance -->
+        <div class="card" style="border-left: 4px solid var(--neon-purple);">
+            <h3 class="section-title" style="color:var(--neon-purple);"><i class="ph-fill ph-paint-brush"></i> Apparence & Thème</h3>
+            <div class="list-item" style="border:none;">
+                <div class="setting-info">
+                    <strong>Mode Visuel</strong>
+                    <span>Passez du mode sombre (Défaut) au mode clair.</span>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="theme-toggle" onchange="toggleTheme()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Currency -->
+        <div class="card" style="border-left: 4px solid var(--neon-cyan);">
+            <h3 class="section-title" style="color:var(--neon-cyan);"><i class="ph-fill ph-currency-circle-dollar"></i> Système de Devises</h3>
+            <div class="list-item" style="flex-direction:column; align-items:flex-start; border:none; padding-bottom: 5px;">
+                <div class="setting-info" style="margin-bottom: 24px; width:100%;">
+                    <strong>Devise Principale</strong>
+                    <div class="segmented-toggle">
+                        <input type="radio" id="curr-usd" name="currency" value="USD" onchange="autoSaveSettings(true)">
+                        <label for="curr-usd">USD ($)</label>
+                        
+                        <input type="radio" id="curr-cdf" name="currency" value="CDF" onchange="autoSaveSettings(true)">
+                        <label for="curr-cdf">CDF (FC)</label>
+                        
+                        <div class="seg-slider"></div>
+                    </div>
+                </div>
+                <div class="setting-info" style="width:100%;">
+                    <strong>Taux de Change Actuel</strong>
+                    <span style="margin-bottom: 8px;">Défaut: 2800. Modifiez seulement si nécessaire. Se sauvegarde automatiquement.</span>
+                    <input type="number" id="s-rate" placeholder="Taux USD -> CDF (Ex: 2850)" style="margin-bottom:0;" oninput="autoSaveDebounce()">
+                </div>
+            </div>
+        </div>
+
+        <!-- Data -->
+        <div class="card" style="border-left: 4px solid var(--neon-green);">
+            <h3 class="section-title" style="color:var(--neon-green);"><i class="ph-fill ph-database"></i> Sauvegardes & Données</h3>
+            <div class="list-item">
+                <div class="setting-info">
+                    <strong>Sauvegarde JSON</strong>
+                    <span>Télécharger une copie de sécurité complète de votre système local.</span>
+                </div>
+                <button class="primary-btn green" style="width: auto; padding: 12px 18px;" onclick="dbManager.exportJSON()"><i class="ph-bold ph-download-simple"></i> Backup</button>
+            </div>
+            
+            <div class="list-item" style="flex-direction: column; align-items: flex-start;">
+                <div class="setting-info" style="margin-bottom: 14px; width:100%;">
+                    <strong>Importer une Sauvegarde</strong>
+                    <span style="color:var(--neon-orange);">Attention, cela écrasera toutes vos données du navigateur actuel.</span>
+                </div>
+                <div style="display:flex; width: 100%; gap:10px;">
+                    <input type="file" id="importFile" accept=".json" style="margin-bottom:0; padding:12px; background:var(--surface-solid); flex:1; border-radius:12px;">
+                    <button class="primary-btn purple" style="width: auto; padding:0 24px;" onclick="handleImport()"><i class="ph-bold ph-upload-simple"></i></button>
+                </div>
+            </div>
+
+            <div class="list-item" style="border-top: 1px solid var(--border-color); margin-top:10px;">
+                <div class="setting-info">
+                    <strong style="color:var(--neon-red);">Zone Dangereuse</strong>
+                    <span>Suppression définitive de la base.</span>
+                </div>
+                <button class="primary-btn" style="width:auto; padding: 12px 16px; background:transparent; border:1px solid var(--neon-red); color:var(--neon-red);" onclick="dbManager.clearData()"><i class="ph-bold ph-trash"></i> Reset All</button>
+            </div>
+        </div>
+    </main>
+
+    <nav class="bottom-nav">
+        <a href="index.html" class="nav-item"><i class="ph ph-squares-four"></i><span>Dash</span></a>
+        <a href="inventory.html" class="nav-item"><i class="ph ph-package"></i><span>Stock</span></a>
+        <a href="treasury.html" class="nav-item"><i class="ph ph-chart-line-up"></i><span>Flux</span></a>
+        <a href="settings.html" class="nav-item active"><i class="ph-fill ph-gear"></i><span>Param</span></a>
+        <a href="about.html" class="nav-item"><i class="ph ph-user-circle"></i><span>Moi</span></a>
+    </nav>
+
+    <script src="database.js"></script>
+    <script>
+        window.onload = () => {
+            const curr = window.appSettings.getCurrency();
+            const rate = window.appSettings.getRate();
+            const theme = window.appSettings.getTheme();
+            
+            if (curr === 'USD') document.getElementById('curr-usd').checked = true;
+            else document.getElementById('curr-cdf').checked = true;
+            
+            document.getElementById('s-rate').value = rate;
+            
+            const toggle = document.getElementById('theme-toggle');
+            toggle.checked = theme === 'light';
+        };
+
+        let timeoutId;
+        function autoSaveDebounce() {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => autoSaveSettings(false), 800);
+        }
+
+        function autoSaveSettings(instantToast = false) {
+            const isUsd = document.getElementById('curr-usd').checked;
+            const curr = isUsd ? 'USD' : 'CDF';
+            const rate = parseFloat(document.getElementById('s-rate').value);
+            
+            if(isNaN(rate) || rate <= 0) return;
+            
+            window.appSettings.setSettings(curr, rate);
+            
+            if (instantToast) {
+                UI.showToast("✅ Devise passée en " + curr, "success");
+            } else {
+                UI.showToast("🔄 Taux sauvegardé", "info");
+            }
+            if(navigator.vibrate) navigator.vibrate(20);
+        }
+
+        function toggleTheme() {
+            const isLight = document.getElementById('theme-toggle').checked;
+            const theme = isLight ? 'light' : 'dark';
+            window.appSettings.setTheme(theme);
+            if(navigator.vibrate) navigator.vibrate(20);
+        }
+
+        function handleImport() {
+            const file = document.getElementById('importFile').files[0];
+            if(!file) return UI.showToast("Sélectionnez un fichier .json d'abord", "error");
+            
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const ok = await UI.confirm("Importation", "Ceci écrase les données actuelles. Continuer ?", true);
+                if(ok) await dbManager.importJSON(e.target.result);
+            };
+            reader.readAsText(file);
+        }
+    </script>
+</body>
+</html>

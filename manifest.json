@@ -1,0 +1,22 @@
+{
+  "name": "NEON Business",
+  "short_name": "NEON_Biz",
+  "description": "Application intelligente et hors-ligne de gestion financière et stocks.",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#0b0f19",
+  "theme_color": "#0b0f19",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}

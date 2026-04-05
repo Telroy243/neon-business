@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventaire - NEON Business</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0b0f19">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .prod-layout { display: flex; padding: 15px; }
+        .prod-img { width: 90px; height: 90px; border-radius: 12px; object-fit: cover; background-color: var(--bg-color); display: flex; align-items: center; justify-content: center; font-size: 2.5rem; margin-right: 15px; flex-shrink: 0; box-shadow: inset 0 2px 4px rgba(0,0,0,0.5); }
+        .prod-info { flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+        .prod-title { font-size: 1.15rem; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: flex-start; font-weight: 600;}
+        
+        .actions-row { display: flex; background: rgba(0,0,0,0.2); border-top: 1px solid var(--border-color); }
+        .actions-row button { flex: 1; padding: 14px 0; background: transparent; border: none; border-right: 1px solid var(--border-color); color: var(--text-muted); cursor: pointer; font-size: 0.85rem; font-weight: 600; display:flex; align-items:center; justify-content:center; gap:6px; transition: all 0.2s ease;}
+        .actions-row button:last-child { border-right: none; }
+        .actions-row button:hover { background: rgba(255,255,255,0.05); color: #fff;}
+        .actions-row button.btn-sell { color: var(--neon-green); background-color: rgba(0,245,139,0.1); }
+        .actions-row button.btn-sell:hover { background-color: rgba(0,245,139,0.2); }
+        
+        .card.alert { border-left: 4px solid var(--neon-red); }
+        
+        #product-form { display: none; padding: 20px; border-radius: 16px; margin-bottom: 25px; border-left: 4px solid var(--neon-green); animation: slideUp 0.3s ease; }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    </style>
+</head>
+<body>
+    <header><h1><i class="ph-fill ph-package"></i> Inventaire</h1></header>
+
+    <main class="page">
+        <button class="primary-btn green" onclick="openAddForm()" style="margin-bottom: 20px;">
+            <i class="ph-bold ph-plus"></i> Nouvel Article
+        </button>
+        
+        <div id="product-form" class="card">
+            <h3 id="form-title" class="section-title" style="color: var(--neon-green);"><i class="ph ph-squares-four"></i> Ajouter un Produit</h3>
+            <input type="hidden" id="p-id">
+            
+            <label style="font-size:0.85rem; color:var(--text-muted); margin-bottom:8px; display:block; font-weight:500;"><i class="ph ph-image"></i> Image du produit</label>
+            <input type="file" id="p-image" accept="image/*" style="padding: 12px; background: rgba(0,0,0,0.2);">
+            
+            <input type="text" id="p-nom" placeholder="Nom de l'article">
+            <input type="number" id="p-achat" placeholder="Coût d'achat" step="any">
+            <input type="number" id="p-vente" placeholder="Prix de vente" step="any">
+            <input type="number" id="p-qte" placeholder="Quantité initiale (Stock)">
+            <input type="number" id="p-seuil" placeholder="Seuil d'alerte critique (ex: 3)">
+            
+            <button class="primary-btn green" onclick="saveProduct()"><i class="ph-bold ph-check"></i> Enregistrer</button>
+            <button class="primary-btn" style="background:transparent; border:1px solid var(--neon-red); color:var(--neon-red); margin-top:10px;" onclick="closeForm()">Annuler</button>
+        </div>
+
+        <div style="position:relative; margin-bottom: 20px;">
+            <i class="ph ph-magnifying-glass" style="position:absolute; left:16px; top:50%; transform:translateY(-50%); font-size:1.2rem; color:var(--text-muted);"></i>
+            <input type="text" id="search-product" placeholder="Rechercher un article..." onkeyup="renderInventory()" style="padding-left: 45px; margin-bottom:0;">
+        </div>
+        
+        <div id="inventory-list"></div>
+    </main>
+
+    <nav class="bottom-nav">
+        <a href="index.html" class="nav-item"><i class="ph ph-squares-four"></i><span>Dash</span></a>
+        <a href="inventory.html" class="nav-item active"><i class="ph-fill ph-package"></i><span>Stock</span></a>
+        <a href="treasury.html" class="nav-item"><i class="ph ph-chart-line-up"></i><span>Flux</span></a>
+        <a href="settings.html" class="nav-item"><i class="ph ph-gear"></i><span>Param</span></a>
+        <a href="about.html" class="nav-item"><i class="ph ph-user-circle"></i><span>Moi</span></a>
+    </nav>
+
+    <script src="database.js"></script>
+    <script>
+        let currentProducts = [];
+
+        async function renderInventory() {
+            currentProducts = await dbManager.getProducts();
+            const search = document.getElementById('search-product').value.toLowerCase();
+            const list = document.getElementById('inventory-list');
+            list.innerHTML = '';
+
+            const filtered = currentProducts.filter(p => p.nom.toLowerCase().includes(search));
+            
+            if(filtered.length === 0) {
+                 list.innerHTML = '<p style="text-align:center; color: var(--text-muted); margin-top:30px;"><i class="ph ph-cube" style="font-size:2.5rem; display:block; margin-bottom:10px;"></i> Aucun produit trouvé.</p>';
+                 return;
+            }
+
+            filtered.forEach(p => {
+                const marge = p.prix_achat_moyen > 0 ? (((p.prix_vente - p.prix_achat_moyen) / p.prix_achat_moyen) * 100).toFixed(0) : 100;
+                const isLow = p.stock_actuel <= p.seuil_alerte;
+                const imgSrc = p.image_base64 ? `<img src="${p.image_base64}" class="prod-img">` : `<div class="prod-img"><i class="ph-fill ph-package" style="color:var(--text-muted);"></i></div>`;
+                
+                list.innerHTML += `
+                    <div class="card ${isLow ? 'alert' : ''}" style="padding:0;">
+                        <div class="prod-layout">
+                            ${imgSrc}
+                            <div class="prod-info">
+                                <div class="prod-title">
+                                    <span>${p.nom}</span>
+                                    <span style="color:${isLow ? 'var(--neon-red)' : 'var(--neon-green)'}; font-size:1.2rem; font-weight:800;">${p.stock_actuel}</span>
+                                </div>
+                                <div style="font-size:0.85rem; color:var(--text-muted); line-height:1.5;">
+                                    Achat: ${window.formatMoney(p.prix_achat_moyen)}<br>
+                                    Vente: <span style="color:var(--neon-cyan); font-weight:600;">${window.formatMoney(p.prix_vente)}</span> (M: ${marge}%)
+                                </div>
+                            </div>
+                        </div>
+                        <div class="actions-row">
+                            <button class="btn-sell" onclick="processSale('${p.id}')"><i class="ph-bold ph-shopping-cart"></i> VENDRE</button>
+                            <button onclick="processRestock('${p.id}')"><i class="ph-bold ph-plus-circle"></i> LOT</button>
+                            <button onclick="editItem('${p.id}')" style="color: var(--neon-orange);"><i class="ph-bold ph-pencil-simple"></i> MODIF</button>
+                            <button onclick="removeItem('${p.id}')" style="color: var(--neon-red);"><i class="ph-bold ph-trash"></i></button>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        function compressImage(file) {
+            return new Promise((resolve) => {
+                if (!file) return resolve('');
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = event => {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const MAX_WIDTH = 300; 
+                        let scaleSize = 1;
+                        if(img.width > MAX_WIDTH) scaleSize = MAX_WIDTH / img.width;
+                        canvas.width = img.width * scaleSize;
+                        canvas.height = img.height * scaleSize;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        resolve(canvas.toDataURL('image/jpeg', 0.6));
+                    }
+                }
+            });
+        }
+
+        function openAddForm() {
+            const curr = window.appSettings.getCurrency();
+            document.getElementById('p-id').value = '';
+            document.getElementById('p-nom').value = '';
+            document.getElementById('p-achat').value = '';
+            document.getElementById('p-vente').value = '';
+            document.getElementById('p-qte').value = '';
+            document.getElementById('p-seuil').value = '3';
+            document.getElementById('p-image').value = '';
+            
+            document.getElementById('p-achat').placeholder = `Coût TOTAL lot (${curr})`;
+            document.getElementById('p-vente').placeholder = `Prix Vente unitaire (${curr})`;
+            
+            document.getElementById('form-title').innerHTML = '<i class="ph ph-squares-four"></i> Ajouter un Produit';
+            document.getElementById('p-achat').disabled = false;
+            document.getElementById('p-qte').disabled = false;
+            document.getElementById('product-form').style.display = 'block';
+            window.scrollTo(0, 0);
+        }
+
+        function editItem(id) {
+            const p = currentProducts.find(prod => prod.id === id);
+            if(!p) return;
+            const curr = window.appSettings.getCurrency();
+            const rate = window.appSettings.getRate();
+            const mult = curr === 'USD' ? 1 : rate;
+
+            document.getElementById('p-id').value = p.id;
+            document.getElementById('p-nom').value = p.nom;
+            document.getElementById('p-achat').value = ''; 
+            document.getElementById('p-vente').value = (p.prix_vente * mult).toString();
+            document.getElementById('p-qte').value = p.stock_actuel;
+            document.getElementById('p-seuil').value = p.seuil_alerte;
+            document.getElementById('p-image').value = '';
+            
+            document.getElementById('p-vente').placeholder = `Prix Vente unitaire (${curr})`;
+            document.getElementById('p-achat').disabled = true;
+            document.getElementById('p-qte').disabled = true;
+            document.getElementById('form-title').innerHTML = '<i class="ph ph-pencil-simple"></i> Éditer le Produit';
+            document.getElementById('product-form').style.display = 'block';
+            window.scrollTo(0, 0);
+        }
+
+        function closeForm() {
+            document.getElementById('product-form').style.display = 'none';
+        }
+
+        async function saveProduct() {
+            const id = document.getElementById('p-id').value;
+            const nom = document.getElementById('p-nom').value;
+            const achatLocal = parseFloat(document.getElementById('p-achat').value);
+            const venteLocal = parseFloat(document.getElementById('p-vente').value);
+            const qte = parseInt(document.getElementById('p-qte').value);
+            const seuil = parseInt(document.getElementById('p-seuil').value) || 0;
+            const imgFile = document.getElementById('p-image').files[0];
+
+            if(!nom || isNaN(venteLocal)) return UI.showToast("Remplissez le nom et le prix !", "error");
+
+            try {
+                const venteUsd = window.appSettings.convertToUsd(venteLocal);
+                let base64 = id ? (currentProducts.find(p=>p.id===id).image_base64 || '') : '';
+                if(imgFile) { base64 = await compressImage(imgFile); }
+
+                if(id) {
+                    await dbManager.updateProduct(id, { nom, prix_vente: venteUsd, seuil_alerte: seuil, image_base64: base64 });
+                    UI.showToast("Produit modifié", "success");
+                } else {
+                    if(isNaN(achatLocal) || isNaN(qte) || qte <= 0) return UI.showToast("Coût total et quantité (lot) requis", "error");
+                    const achatTotalUsd = window.appSettings.convertToUsd(achatLocal);
+                    const uniteAchatUsd = achatTotalUsd / qte; 
+                    
+                    await dbManager.addProduct({ nom, prix_achat_moyen: uniteAchatUsd, prix_vente: venteUsd, stock_actuel: qte, seuil_alerte: seuil, image_base64: base64 });
+                    UI.showToast("Produit ajouté avec succès", "success");
+                }
+                closeForm();
+                renderInventory();
+            } catch(e) { UI.showToast("Erreur: " + e.message, "error"); }
+        }
+
+        async function processSale(id) {
+            const p = currentProducts.find(prod => prod.id === id);
+            if(!p) return;
+            const saleData = await UI.saleModal(p.nom, p.stock_actuel, p.prix_vente);
+            if(!saleData) return; 
+            try {
+                await dbManager.sellProduct(id, saleData);
+                if(navigator.vibrate) navigator.vibrate(50);
+                UI.showToast(`✅ Vente enregistrée`, "success");
+                renderInventory();
+            } catch(e) { UI.showToast(e.message, "error"); }
+        }
+
+        async function processRestock(id) {
+            const p = currentProducts.find(prod => prod.id === id);
+            if(!p) return;
+            
+            const qteStr = await UI.prompt(`Nouveau lot: ${p.nom}`, "Combien d'articles ?", 10, "number");
+            if(!qteStr) return;
+            const qte = parseInt(qteStr);
+            if(isNaN(qte) || qte <= 0) return UI.showToast("Quantité invalide", "error");
+
+            const curr = window.appSettings.getCurrency();
+            const priceStr = await UI.prompt(`Prix payé AU TOTAL pour ces ${qte} articles en ${curr} ?`, `Coût Total (${curr})`, '', "number");
+            if(!priceStr) return;
+            const totalCostLocal = parseFloat(priceStr);
+            if(isNaN(totalCostLocal) || totalCostLocal < 0) return UI.showToast("Coût total invalide", "error");
+
+            const unitPriceUsd = window.appSettings.convertToUsd(totalCostLocal) / qte;
+
+            try {
+                await dbManager.restockProduct(id, qte, unitPriceUsd);
+                UI.showToast("📦 Stock mis à jour", "success");
+                renderInventory();
+            } catch(e) { UI.showToast("Erreur: " + e.message, "error"); }
+        }
+
+        async function removeItem(id) {
+            const ok = await UI.confirm("Supprimer", "Retirer cet article de l'inventaire ?", true);
+            if(ok) {
+                await dbManager.deleteProduct(id);
+                UI.showToast("🗑️ Article supprimé");
+                renderInventory();
+            }
+        }
+
+        window.onload = async () => { await dbManager.initDB(); renderInventory(); };
+    </script>
+</body>
+</html>
