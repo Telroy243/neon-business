@@ -251,3 +251,113 @@ input:checked + .slider:before { transform: translateX(24px); background-color: 
 .segmented-toggle input:checked + label { color: #000; }
 .segmented-toggle input#curr-cdf:checked ~ .seg-slider { transform: translateX(100%); }
 
+/* PWA Installation Prompt Custom Banner */
+.pwa-install-banner {
+    position: fixed;
+    bottom: 90px;
+    left: 16px;
+    right: 16px;
+    background: var(--surface-color);
+    border: 1px solid var(--neon-cyan);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+    z-index: 10000;
+    transform: translateY(100%);
+    opacity: 0;
+    transition: transform 0.6s cubic-bezier(0.175,0.885,0.32,1.275), opacity 0.6s ease;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+.pwa-install-banner.show {
+    transform: translateY(0);
+    opacity: 1;
+}
+.pwa-content { display: flex; align-items: center; gap: 15px; }
+.pwa-icon { font-size: 2.5rem; color: var(--neon-cyan); background: rgba(0, 230, 246, 0.1); padding: 12px; border-radius: 14px; }
+.pwa-text h3 { color: var(--text-main); font-size: 1.1rem; margin-bottom: 4px; font-weight: 700; }
+.pwa-text p { color: var(--text-muted); font-size: 0.85rem; line-height: 1.4; }
+.pwa-actions { display: flex; gap: 12px; width: 100%; margin-top: 5px; }
+.pwa-actions button { flex: 1; padding: 12px; border-radius: 10px; font-weight: 700; cursor: pointer; transition: all 0.2s ease; border: none; font-size: 0.95rem; font-family: 'Outfit', sans-serif;}
+.pwa-actions .btn-install { background: var(--neon-cyan); color: #000; box-shadow: 0 0 15px rgba(0, 230, 246, 0.4); }
+.pwa-actions .btn-install:active { transform: scale(0.95); }
+.pwa-actions .btn-dismiss { background: transparent; border: 1px solid var(--border-color); color: var(--text-muted); }
+.pwa-actions .btn-dismiss:active { background: rgba(255,255,255,0.05); }
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>À propos - NEON Business</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0b0f19">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .profile {
+            width: 90px; height: 90px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--neon-cyan), var(--neon-purple));
+            margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;
+            font-size: 2.5rem; color: #fff;
+            box-shadow: 0 0 25px var(--neon-cyan-glow);
+            border: 3px solid var(--surface-solid);
+        }
+        .info-card {
+            text-align: left; background: var(--surface-solid); padding: 18px; border-radius: 12px; margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+        }
+    </style>
+</head>
+<body>
+    <header><h1><i class="ph-fill ph-user-circle"></i> À propos</h1></header>
+
+    <main class="page">
+        <div class="card" style="text-align:center;">
+            <div class="profile"><i class="ph-fill ph-rocket"></i></div>
+            <h2 style="color: var(--neon-cyan); margin-bottom: 5px; font-weight:700;">Victor Tesla</h2>
+            <p style="color: var(--text-muted); margin-bottom: 25px; font-size: 0.95rem;">Étudiant en Polytechnique<br>ULPGL Goma</p>
+            
+            <div class="info-card">
+                <h3 style="border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin-bottom: 12px; font-size: 1.05rem; color: var(--text-main); display:flex; align-items:center; gap:8px;">
+                    <i class="ph-fill ph-lightbulb" style="color:var(--neon-green);"></i> Utilité de l'Application
+                </h3>
+                <p style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.5;">
+                    <strong style="color:var(--text-main);">NEON Business Manager</strong> est une Progressive Web App (PWA) conçue pour vous permettre de piloter votre entreprise de façon 100% hors-ligne. L'outil simplifie le suivi de votre trésorerie, la gestion des stocks, ainsi que le traçage des dettes et bénéfices de manière fluide et intuitive avec un design moderne.
+                </p>
+            </div>
+
+            <div class="info-card">
+                <h3 style="border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin-bottom: 12px; font-size: 1.05rem; color: var(--text-main); display:flex; align-items:center; gap:8px;">
+                    <i class="ph-fill ph-planet" style="color:var(--neon-purple);"></i> L'Écosystème NEON
+                </h3>
+                <p style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.5;">
+                    Je suis le créateur de l'<strong style="color:var(--text-main);">Écosystème NEON</strong>. Il s'agit d'une suite innovante de divers logiciels et applications que je conçois dans un seul but : allier esthétique, haute technologie et productivité maximale pour répondre de la meilleure façon aux besoins fonctionnels des utilisateurs.
+                </p>
+            </div>
+            
+            <a href="https://wa.me/243997105634" target="_blank" class="primary-btn green" style="text-decoration:none; max-width:300px; margin: 0 auto;">
+                <i class="ph-fill ph-whatsapp-logo"></i> Me contacter sur WhatsApp
+            </a>
+            
+            <p style="margin-top: 25px; font-size: 0.8rem; color: var(--text-muted);">
+                NEON Business Manager v2.2<br>
+                Propulsé par IndexedDB.
+            </p>
+        </div>
+    </main>
+
+    <nav class="bottom-nav">
+        <a href="index.html" class="nav-item"><i class="ph ph-squares-four"></i><span>Dash</span></a>
+        <a href="inventory.html" class="nav-item"><i class="ph ph-package"></i><span>Stock</span></a>
+        <a href="treasury.html" class="nav-item"><i class="ph ph-chart-line-up"></i><span>Flux</span></a>
+        <a href="settings.html" class="nav-item"><i class="ph ph-gear"></i><span>Param</span></a>
+        <a href="about.html" class="nav-item active"><i class="ph-fill ph-user-circle"></i><span>Moi</span></a>
+    </nav>
+    
+    <!-- Injection de Database.js obligatoire pour l'initialisation du Thème ! -->
+    <script src="database.js"></script>
+</body>
+</html>
